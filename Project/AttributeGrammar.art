@@ -1,0 +1,149 @@
+(* ART parser with attributes for the GCD language *)
+prelude {
+  import java.util.HashMap;
+}
+
+support {
+  HashMap<String, Integer> variables = new HashMap<String, Integer>();
+  HashMap<String, ARTGLLRDTHandle> melodies = new HashMap<String, ARTGLLRDTHandle>();
+  HashMap<String, String> notesinmelody = new HashMap<String, String>();
+  ITerms iTerms = new ITermsLowLevelAPI(10,10);
+  MusicPlayer mp = new MusicPlayer();
+}
+
+statements ::= statement { System.out.println("Variables at end of program: " + variables); }
+| statement statements  
+
+statement ::=
+  ID ':=' subExpr ';' { variables.put(ID1.v, subExpr1.v); }
+| 'if' relExpr statement< 'else' statement<
+  { if (relExpr1.v != 0) 
+      artEvaluate(statement.statement1, statement1); 
+    else
+      artEvaluate(statement.statement2, statement2);  
+   }
+| 'while' relExpr< statement< 
+  { artEvaluate(statement.relExpr1, relExpr1); 
+    while (relExpr1.v != 0) { 
+      artEvaluate(statement.statement1, statement1); 
+      artEvaluate(statement.relExpr1, relExpr1); 
+    } 
+  }
+| 'melody' ID '{' STRING_DQ '}'
+  {notesinmelody.put(ID1.v, STRING_DQ1.v);}
+| 'repeatNote' '(' STRING_DQ ',' subExpr ')' ';'
+  { iTerms.valueUserPlugin.user(new __int32(1,iTerms), new __string(STRING_DQ1.v,iTerms), new __int32(subExpr1.v, iTerms)); }
+| 'play' ID ';'
+  {if(!notesinmelody.containsKey(ID1.v)){
+    artText.println(ARTTextLevel.WARNING, "ignoring request to play undefined melody: " + ID1.v);
+  } else{
+    iTerms.valueUserPlugin.user(new __int32(3, iTerms), new __string(notesinmelody.get(ID1.v), iTerms));
+  }}
+| '{' statements '}' 
+|  'mix' '(' ID ',' ID ')' ';'
+  {
+    iTerms.valueUserPlugin.user(new __int32(9, iTerms), new __string(notesinmelody.get(ID1.v), iTerms), new __string(notesinmelody.get(ID2.v), iTerms));
+  }
+|ID STRING_DQ ';'
+| 'backingtrack' '('ID ',' subExpr ')' ';'
+  {if(!notesinmelody.containsKey(ID1.v)){
+    artText.println(ARTTextLevel.WARNING, "ignoring request to play undefined melody: " + ID1.v);
+  } else{
+    iTerms.valueUserPlugin.user(new __int32(10,iTerms), new __string(notesinmelody.get(ID1.v), iTerms), new __int32(subExpr1.v, iTerms));
+  }
+  }
+|'scale' '(' STRING_DQ ',' STRING_DQ ')' ';'
+  {
+    iTerms.valueUserPlugin.user(new __int32(12, iTerms), new __string(STRING_DQ1.v, iTerms), new __string(STRING_DQ2.v, iTerms));
+  }
+| 'arpeggio' '(' STRING_DQ ',' STRING_DQ ')' ';'
+  {
+    iTerms.valueUserPlugin.user(new __int32(13, iTerms), new __string(STRING_DQ1.v, iTerms), new __string(STRING_DQ2.v, iTerms));
+  }
+| 'print' '(' printElements ')' ';' 
+|
+  bpm | octave | note | chord | rest | instrument | volume | beatRatio
+
+relExpr<v:int> ::=
+  subExpr { relExpr.v = subExpr1.v; }
+| relExpr '>' subExpr { relExpr.v = relExpr1.v > subExpr1.v ? 1 : 0; }
+| relExpr '!=' subExpr { relExpr.v = relExpr1.v != subExpr1.v ? 1 : 0; }
+| relExpr '<' subExpr { relExpr.v = relExpr1.v < subExpr1.v ? 1 : 0; }
+| relExpr '==' subExpr { relExpr.v = relExpr1.v == subExpr1.v ? 1 : 0; }
+| relExpr '>=' subExpr { relExpr.v = relExpr1.v >= subExpr1.v ? 1 : 0; }
+| relExpr '<=' subExpr { relExpr.v = relExpr1.v <= subExpr1.v ? 1 : 0; }
+
+subExpr<v:int> ::=
+  operand { subExpr.v = operand1.v; }
+| subExpr '-' operand { subExpr.v = subExpr1.v - operand1.v; }
+| subExpr '+' operand { subExpr.v = subExpr1.v + operand1.v; }
+| subExpr '*' operand { subExpr.v = subExpr1.v * operand1.v; }
+| subExpr '/' operand { subExpr.v = subExpr1.v / operand1.v; }
+| subExpr '%' operand { subExpr.v = subExpr1.v % operand1.v; }
+| '-' subExpr { subExpr.v = -subExpr1.v ; }
+| subExpr '**' operand { subExpr.v = (int)Math.pow(subExpr1.v, operand1.v); }
+
+bpm ::= 'bpm' subExpr ';' { iTerms.valueUserPlugin.user(new __int32(4, iTerms), new __int32(subExpr1.v, iTerms)); }
+
+volume ::= 'volume' subExpr ';' { iTerms.valueUserPlugin.user(new __int32(11, iTerms), new __int32(subExpr1.v, iTerms)); }
+
+instrument ::= 'instrument' '(' subExpr ',' subExpr ')' ';' { iTerms.valueUserPlugin.user(new __int32(5, iTerms), new __int32(subExpr1.v, iTerms), new __int32(subExpr2.v, iTerms)); }
+| 'instrument' '(' STRING_DQ ',' subExpr ')' ';' { iTerms.valueUserPlugin.user(new __int32(6, iTerms), new __string(STRING_DQ1.v, iTerms), new __int32(subExpr1.v, iTerms));}
+| 'instrument' STRING_DQ ';' { iTerms.valueUserPlugin.user(new __int32(15, iTerms), new __string(STRING_DQ1.v, iTerms)); }
+| 'instrument' subExpr ';' { iTerms.valueUserPlugin.user(new __int32(16, iTerms), new __int32(subExpr1.v, iTerms)); }
+
+octave ::= 'octave' INTEGER ';'
+ { if (INTEGER1.v < 0 || INTEGER1.v > 10) 
+     artText.println(ARTTextLevel.WARNING, "ignoring illegal MIDI octave number " + INTEGER1.v);
+    else
+      iTerms.valueUserPlugin.user(new __int32(8, iTerms), new __int32(INTEGER1.v, iTerms)); 
+ }
+
+beatRatio ::= 'beatRatio' REAL ';' { iTerms.valueUserPlugin.user(new __int32(17,iTerms), new __real64(REAL1.v, iTerms)); }
+
+note ::= simpleNote chordMode { mp.playChord(simpleNote1.v.trim(), chordMode1.v ); } | 
+         simpleNote shifters chordMode { mp.playChord(simpleNote1.v.trim(), mp.getDefaultOctave() + shifters1.v, chordMode1.v); } | 
+         simpleNote INTEGER chordMode { mp.playChord(simpleNote1.v.trim(), INTEGER1.v, chordMode1.v); }
+
+chordMode <v:Chord> ::= # { chordMode.v = Chord.NONE; } | 
+                           'm' { chordMode.v = Chord.MINOR; } | 'm7' { chordMode.v = Chord.MINOR7; } | 
+                           'M' { chordMode.v = Chord.MAJOR; } | 'M7' { chordMode.v = Chord.MAJOR7; }
+
+simpleNote<leftExtent:int rightExtent:int v:String> ::= 
+  simpleNoteLexeme { simpleNote.v = artLexeme(simpleNote.leftExtent, simpleNote.rightExtent).trim(); }
+
+simpleNoteLexeme ::= 'Ab' | 'A' | 'A#' | 'Bb' | 'B' | 'C' | 'C#' | 'Db' | 'D' | 'D#' | 'Eb' | 'E' | 'F' | 'F#' | 'Gb' | 'G' | 'G#'
+
+shifters<v:int> ::= '+' {shifters.v = 1;} | '-' {shifters.v = -1;} | 
+                    '+' shifters {shifters.v = shifters1.v + 1; } | 
+                    '-' shifters {shifters.v = shifters1.v - 1; }
+     
+chord ::= '[' notes ']'
+
+notes ::= note | note notes
+
+rest ::= '.' { iTerms.valueUserPlugin.user(new __int32(7, iTerms), new __int32(1, iTerms)); } | '..' { iTerms.valueUserPlugin.user(new __int32(7, iTerms), new __int32(2, iTerms)); } | '...' { iTerms.valueUserPlugin.user(new __int32(7, iTerms), new __int32(3, iTerms)); } | '....' { iTerms.valueUserPlugin.user(new __int32(7, iTerms), new __int32(4, iTerms)); }
+
+printElements ::= STRING_DQ { iTerms.valueUserPlugin.user(new __int32(14, iTerms), new __string(STRING_DQ1.v, iTerms)); } | 
+                  STRING_DQ { iTerms.valueUserPlugin.user(new __int32(14, iTerms), new __string(STRING_DQ1.v, iTerms)); } ',' printElements | 
+                  subExpr { iTerms.valueUserPlugin.user(new __int32(14, iTerms), new __int32(subExpr1.v, iTerms)); } | subExpr { iTerms.valueUserPlugin.user(new __int32(14, iTerms), new __int32(subExpr1.v, iTerms)); } ',' printElements | 
+                  ID { iTerms.valueUserPlugin.user(new __int32(14, iTerms), new __int32(variables.get(ID1.v), iTerms)); }
+
+operand<v:int> ::=
+  ID {operand.v = variables.get(ID1.v); }
+| INTEGER {operand.v = INTEGER1.v; }
+| '(' subExpr ')' {operand.v = subExpr1.v; }
+
+
+(* lexical items below this line *)
+ID <leftExtent:int rightExtent:int lexeme:String v:String> ::= 
+  &ID {ID.lexeme = artLexeme(ID.leftExtent, ID.rightExtent); ID.v = artLexemeAsID(ID.leftExtent, ID.rightExtent); }  
+
+INTEGER <leftExtent:int rightExtent:int lexeme:String v:int> ::= 
+  &INTEGER {INTEGER.lexeme = artLexeme(INTEGER.leftExtent, INTEGER.rightExtent); INTEGER.v = artLexemeAsInteger(INTEGER.leftExtent, INTEGER.rightExtent); }
+
+REAL <leftExtent:int rightExtent:int lexeme:String v:double> ::= 
+  &REAL {REAL.lexeme = artLexeme(REAL.leftExtent, REAL.rightExtent); REAL.v = artLexemeAsReal(REAL.leftExtent, REAL.rightExtent); }  
+
+STRING_DQ <leftExtent:int rightExtent:int lexeme:String v:String> ::= 
+  &STRING_DQ {STRING_DQ.lexeme = artLexeme(STRING_DQ.leftExtent, STRING_DQ.rightExtent); STRING_DQ.v = artLexemeAsString(STRING_DQ.leftExtent, STRING_DQ.rightExtent); }  

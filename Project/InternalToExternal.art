@@ -1,0 +1,45 @@
+
+statement ::= seq^^ | assign^^ | if^^ | while^^ | backend^^ | repeatNote^^ | bpm^^ | instrument^^ | volume^^ | beatRatio^^ | octave^^
+ 
+seq ::= statement statement
+assign ::= ID ':='^ subExpr ';'^
+if ::= 'if'^ relExpr statement 'else'^ statement
+while ::= 'while'^ relExpr statement 
+backend ::= 'backend'^ '('^ subExpr ','^ subExpr ','^ subExpr ')'^
+
+repeatNote ::= 'repeatNote'^ '('^ subExpr ','^ subExpr ')'^
+bpm ::= 'bpm'^ INTEGER
+instrument ::= 'instrument'^ INTEGER | STRING_DQ 
+beatRatio ::= 'beatRatio'^ REAL
+volume ::= 'volume'^ INTEGER
+octave ::= 'octave'^ INTEGER
+relExpr ::= subExpr^^ | gt^^ | ne^^ | lt^^ | eq^^ | lteq^^ | gteq^^
+gt ::= relExpr '>'^ subExpr
+ne ::= relExpr '!='^ subExpr
+eq ::= relExpr '=='^ subExpr
+lt ::= relExpr '<'^ subExpr
+le ::= relExpr '<='^ subExpr
+ge ::= relExpr '>='^ subExpr
+
+subExpr ::= operand^^ | sub^^ | add^^ | mul^^ | div^^ | mod^^
+sub ::= subExpr '-'^ operand
+add ::= subExpr '+'^ operand
+mul ::= subExpr '*'^ operand
+div ::= subExpr '/'^ operand
+mod ::= subExpr '%'^ operand
+
+operand ::= deref^^ | INTEGER^^ | '('^ subExpr^^ ')'^ 
+deref ::= ID
+
+(* lexical items below this line *)
+ID <leftExtent:int rightExtent:int lexeme:String v:ARTValueString> ::= 
+  &ID^^ {ID.lexeme = artLexeme(ID.leftExtent, ID.rightExtent); 
+  ID.v = new ARTValueString(artLexemeAsID(ID.leftExtent, ID.rightExtent)); }  
+
+INTEGER <leftExtent:int rightExtent:int lexeme:String v:ARTValueInteger32> ::= 
+  &INTEGER^^ { INTEGER.lexeme = artLexeme(INTEGER.leftExtent, INTEGER.rightExtent); 
+  INTEGER.v = new ARTValueInteger32(artLexemeAsInteger(INTEGER.leftExtent, INTEGER.rightExtent)); }  
+
+STRING_DQ <leftExtent:int rightExtent:int lexeme:String v:ARTValueString> ::= 
+  &STRING_DQ^^ {STRING_DQ.lexeme = artLexeme(STRING_DQ.leftExtent, STRING_DQ.rightExtent); 
+  STRING_DQ.v = new ARTValueString(artLexemeAsSTRING_DQ(STRING_DQ.leftExtent, STRING_DQ.rightExtent)); }
